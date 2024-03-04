@@ -1,28 +1,33 @@
-from sklearn.metrics import roc_curve, auc
 import numpy as np
+from sklearn.metrics import auc, roc_curve
 
 
 def get_err_threhold(fpr, tpr, threshold):
-    differ_tpr_fpr_1=tpr+fpr-1.0
+    differ_tpr_fpr_1 = tpr + fpr - 1.0
     right_index = np.argmin(np.abs(differ_tpr_fpr_1))
     best_th = threshold[right_index]
-    err = fpr[right_index]    
+    err = fpr[right_index]
     return err, best_th, right_index
 
 
 def get_acc(labels, scores):
-    fpr,tpr,threshold = roc_curve(labels, scores, pos_label=1)
+    fpr, tpr, threshold = roc_curve(labels, scores, pos_label=1)
     # auc_test = auc(fpr, tpr)
     val_err, val_threshold, right_index = get_err_threhold(fpr, tpr, threshold)
 
-    type1 = len([i for i in range(len(labels)) if scores[i] < val_threshold and labels[i] == 1])
-    type2 = len([i for i in range(len(labels)) if scores[i] > val_threshold and labels[i] == 0])
+    type1 = len(
+        [i for i in range(len(labels)) if scores[i] < val_threshold and labels[i] == 1]
+    )
+    type2 = len(
+        [i for i in range(len(labels)) if scores[i] > val_threshold and labels[i] == 0]
+    )
 
-    ACC = 1-(type1 + type2) / len(labels)
+    ACC = 1 - (type1 + type2) / len(labels)
     return ACC
 
+
 def performances_val(inp, fpr_rate=0.05):
-    if type(inp) == str:
+    if isinstance(inp, str):
         with open(inp, 'r') as file:
             lines = file.readlines()
     else:
@@ -38,34 +43,44 @@ def performances_val(inp, fpr_rate=0.05):
             count += 1
             tokens = line.split()
             score = float(tokens[0])
-            label = float(tokens[1]) 
+            label = float(tokens[1])
             val_scores.append(score)
             val_labels.append(label)
             data.append({'map_score': score, 'label': label})
-            if label==1:
+            if label == 1:
                 num_real += 1
             else:
                 num_fake += 1
-        except:
+        except Exception:
             continue
-    
-    fpr,tpr,threshold = roc_curve(val_labels, val_scores, pos_label=1, drop_intermediate=False)
+
+    fpr, tpr, threshold = roc_curve(
+        val_labels, val_scores, pos_label=1, drop_intermediate=False
+    )
     auc_test = auc(fpr, tpr)
 
     tpr_at_fpr = tpr[np.argmin(abs(fpr - fpr_rate))]
 
     val_err, val_threshold, right_index = get_err_threhold(fpr, tpr, threshold)
-    
+
     type1 = len([s for s in data if s['map_score'] < val_threshold and s['label'] == 1])
     type2 = len([s for s in data if s['map_score'] > val_threshold and s['label'] == 0])
-    
-    val_ACC = 1-(type1 + type2) / count
-    
-    FRR = 1- tpr    # FRR = 1 - TPR
-    
-    HTER = (fpr+FRR)/2.0    # error recognition rate &  reject recognition rate
-    
-    return val_ACC, fpr[right_index], FRR[right_index], HTER[right_index], auc_test, val_err, tpr_at_fpr
+
+    val_ACC = 1 - (type1 + type2) / count
+
+    FRR = 1 - tpr  # FRR = 1 - TPR
+
+    HTER = (fpr + FRR) / 2.0  # error recognition rate &  reject recognition rate
+
+    return (
+        val_ACC,
+        fpr[right_index],
+        FRR[right_index],
+        HTER[right_index],
+        auc_test,
+        val_err,
+        tpr_at_fpr,
+    )
 
 
 def performances_tpr_fpr(map_score_val_filename):
@@ -78,19 +93,19 @@ def performances_tpr_fpr(map_score_val_filename):
             record = line.split()
             scores.append(float(record[0]))
             labels.append(float(record[1]))
-        except:
+        except Exception:
             continue
 
     fpr_list = [0.1, 0.01, 0.001, 0.0001]
-    threshold_list = get_thresholdtable_from_fpr(scores,labels, fpr_list)
-    tpr_list = get_tpr_from_threshold(scores,labels, threshold_list)
+    threshold_list = get_thresholdtable_from_fpr(scores, labels, fpr_list)
+    tpr_list = get_tpr_from_threshold(scores, labels, threshold_list)
     return tpr_list
 
 
 def get_thresholdtable_from_fpr(scores, labels, fpr_list):
     threshold_list = []
     live_scores = []
-    for score, label in zip(scores,labels):
+    for score, label in zip(scores, labels):
         if label == 1:
             live_scores.append(float(score))
     live_scores.sort()
@@ -99,15 +114,16 @@ def get_thresholdtable_from_fpr(scores, labels, fpr_list):
         i_sample = int(fpr * live_nums)
         i_sample = max(1, i_sample)
         if not live_scores:
-            return [0.5]*10
+            return [0.5] * 10
         threshold_list.append(live_scores[i_sample - 1])
     return threshold_list
 
+
 # Get the threshold under thresholds
-def get_tpr_from_threshold(scores,labels, threshold_list):
+def get_tpr_from_threshold(scores, labels, threshold_list):
     tpr_list = []
     hack_scores = []
-    for score, label in zip(scores,labels):
+    for score, label in zip(scores, labels):
         if label == 0:
             hack_scores.append(float(score))
     hack_scores.sort()

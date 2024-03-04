@@ -1,8 +1,8 @@
 # Gradient Alignment for Cross-Domain Face Anti-Spoofing
 
-*The IEEE/CVF Conference on Computer Vision and Pattern Recognition (**CVPR**) 2024* <br /> 
+*The IEEE/CVF Conference on Computer Vision and Pattern Recognition (**CVPR**) 2024* <br />
 [[paper](http://arxiv.org/abs/2402.18817)]
-<br /> 
+<br />
 
 <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/Leminhbinh0209/CVPR24-FAS?style=for-the-badge" height="25"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/Leminhbinh0209/CVPR24-FAS?style=for-the-badge" height="25"><img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/Leminhbinh0209/CVPR24-FAS?style=for-the-badge" height="25">
 
@@ -13,10 +13,9 @@
 <p>
 
 ## 1. Installation
-- Ubuntu 18.04.5 LTS
-- CUDA 11.3
+- Ubuntu 22.04.2 LTS
 - Python 3.6.12
-- pytorch == 1.10.1
+- pip install -r requirements.txt
 ## 2. Dataset
 
 - Idiap Replay Attack [[paper](https://ieeexplore.ieee.org/document/6313548)]
@@ -24,14 +23,14 @@
 - CASIA-MFSD [[paper](https://ieeexplore.ieee.org/document/6199754)]
 - MSU-MFSD [[paper](http://biometrics.cse.msu.edu/Publications/Face/WenHanJain_FaceSpoofDetection_TIFS15.pdf)]
 
-#### Data pre-processing: Follow the preprocessing steps in [SAFAS](https://github.com/sunyiyou/SAFAS).
+#### Data pre-processing: Follow the preprocessing steps in [SAFAS](https://github.com/tuliosouza99/SAFAS).
 
 ## 3. Training
 
 ### 3.1 Running
 Our implementaion of GAC-FAS is in `optimizers/gacfas.py`
 
-Update configuration file and start training ICM2O by: 
+Update configuration file and start training ICM2O by:
 ```python
 python train.py --config ./configs/ICM2O.yaml
 ```
@@ -48,7 +47,7 @@ Please consider following parameters while runing as it affects on final results
 - ERM losses (BCE, CE: OMI2C)
 - Color Jitter may help
 - Balanced _live vs. spoof_ data loader may help (only for OCI2M)
-- Larger lr may help (1e-2: OMI2C) 
+- Larger lr may help (1e-2: OMI2C)
 
 ### 3.3 Snapshot resutls
 | Methods | **ICM2O** |  | **OCM2I** |  | **OCI2M** |  | OMI2C |  |
@@ -71,7 +70,7 @@ Please consider following parameters while runing as it affects on final results
 | SA-FAS   | 10.00 | 96.23 | 6.58 | 97.54 | 5.95 | 96.55 | 8.78 | 95.37 |
 | UDG-FAS  | 10.97 | 95.36 | 5.86 | 98.62 | 5.95 | **98.47** | 9.82 |**96.76** |
 | GAC-FAS (**ours**) | **8.60** (0.28) | **97.16** (0.40) | **4.29** (0.83) | **98.87** (0.60) | **5.00** (0.00) | 97.56 (0.06) | **8.20** (0.43) | 95.16 (0.09) |
-## 4. Landscape visualization 
+## 4. Landscape visualization
 
 [[paper](https://proceedings.neurips.cc/paper/7875-visualizing-the-loss-landscape-of-neural-nets.pdf)][[code](https://github.com/tomgoldstein/loss-landscape)][[software](http://paraview.org/)]
 
@@ -82,7 +81,7 @@ Please consider following parameters while runing as it affects on final results
 
 
 #
-*Star (⭐) if you find it useful, and consider to cite our work*  
+*Star (⭐) if you find it useful, and consider to cite our work*
 
 ## Citation
 ```

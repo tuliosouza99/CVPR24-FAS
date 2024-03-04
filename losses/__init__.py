@@ -1,8 +1,7 @@
-import torch.nn.functional as F
-import torch.nn as nn
 import torch
 
-def supcon_loss(features, labels=None, mask=None, temperature = 0.1):
+
+def supcon_loss(features, labels=None, mask=None, temperature=0.1):
     base_temperature = 0.07
     """Compute loss for model. If both `labels` and `mask` are None,
     it degenerates to SimCLR unsupervised loss:
@@ -15,13 +14,13 @@ def supcon_loss(features, labels=None, mask=None, temperature = 0.1):
     Returns:
         A loss scalar.
     """
-    device = (torch.device('cuda')
-              if features.is_cuda
-              else torch.device('cpu'))
+    device = torch.device('cuda') if features.is_cuda else torch.device('cpu')
 
     if len(features.shape) < 3:
-        raise ValueError('`features` needs to be [bsz, n_views, ...],'
-                         'at least 3 dimensions are required')
+        raise ValueError(
+            '`features` needs to be [bsz, n_views, ...],'
+            'at least 3 dimensions are required'
+        )
     if len(features.shape) > 3:
         features = features.view(features.shape[0], features.shape[1], -1)
 
@@ -45,8 +44,8 @@ def supcon_loss(features, labels=None, mask=None, temperature = 0.1):
 
     # compute logits
     anchor_dot_contrast = torch.div(
-        torch.matmul(anchor_feature, contrast_feature.T),
-    temperature)
+        torch.matmul(anchor_feature, contrast_feature.T), temperature
+    )
     # for numerical stability
     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
     logits = anchor_dot_contrast - logits_max.detach()
@@ -58,7 +57,7 @@ def supcon_loss(features, labels=None, mask=None, temperature = 0.1):
         torch.ones_like(mask),
         1,
         torch.arange(batch_size * anchor_count).view(-1, 1).to(device),
-        0
+        0,
     )
     mask = mask * logits_mask
 
@@ -70,7 +69,7 @@ def supcon_loss(features, labels=None, mask=None, temperature = 0.1):
     mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
 
     # loss
-    loss = - (temperature / base_temperature) * mean_log_prob_pos
+    loss = -(temperature / base_temperature) * mean_log_prob_pos
     loss = loss.view(anchor_count, batch_size).mean()
 
     return loss
