@@ -14,7 +14,7 @@
 
 ## 1. Installation
 - Ubuntu 22.04.2 LTS
-- Python 3.6.12
+- Python 3.12.2
 - pip install -r requirements.txt
 ## 2. Dataset
 

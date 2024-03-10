@@ -97,9 +97,9 @@ def main(config):
         )
         minimizer = GACFAS(
             model=model,
-            rho=config.TRAIN.GAC.rho,
-            eta=config.TRAIN.GAC.eta,
-            alpha=config.TRAIN.GAC.alpha,
+            rho=config.TRAIN.get(config.TRAIN.minimizer.upper()).rho,
+            eta=config.TRAIN.get(config.TRAIN.minimizer.upper()).eta,
+            alpha=config.TRAIN.get(config.TRAIN.minimizer.upper()).alpha,
             n_domains=len(config.train_set),
         )
     else:

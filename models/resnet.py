@@ -38,7 +38,7 @@ class Resnet18(nn.Module):
     def __init__(self, pretrained='imagenet', bn_freeze=False, n_classes=1):
         super(Resnet18, self).__init__()
 
-        self.model = resnet18(True)  # pretrained
+        self.model = resnet18()
         if pretrained == 'imagenet':
             self.model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
 

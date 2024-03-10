@@ -3,6 +3,7 @@ import os
 import random
 import re
 from glob import glob
+from typing import Sequence, Optional
 
 import numpy as np
 from PIL import Image
@@ -11,63 +12,44 @@ from torch.utils.data import Dataset
 from .meta import DEVICE_INFOS
 
 
-def list_dirs_at_depth(root_dir, depth):
-    if depth < 0:
-        return []
-    elif depth == 0:
-        return [root_dir]
-    else:
-        sub_dirs = [
-            os.path.join(root_dir, d)
-            for d in os.listdir(root_dir)
-            if os.path.isdir(os.path.join(root_dir, d))
-        ]
-        return [
-            d for sub_dir in sub_dirs for d in list_dirs_at_depth(sub_dir, depth - 1)
-        ]
-
-
 class FaceDataset(Dataset):
     def __init__(
         self,
-        dataset_name,
-        root_dir,
-        is_train=True,
-        label=None,
+        dataset_name: str,
+        root_dir: str,
+        is_train: bool = True,
+        label: Optional[str] = None,
         transform=None,
-        map_size=32,
-        UUID=-1,
-        img_size=256,
-        test_per_video=1,
+        map_size: int = 32,
+        UUID: int = -1,
+        img_size: int = 256,
     ):
         self.is_train = is_train
-        self.video_list = [
-            folder
-            for folder in list_dirs_at_depth(
-                os.path.join(root_dir, 'train' if is_train else 'test'), 2
-            )
-            if len(os.listdir(folder)) > 0
-        ]
+        self.dataset_name = dataset_name
+        self.root_dir = os.path.join(root_dir, self.dataset_name, 'preprocess')
+
+        self.video_list = os.listdir(self.root_dir)
+        if is_train:
+            self.video_list = list(filter(lambda x: 'train' in x, self.video_list))
+        else:
+            self.video_list = list(filter(lambda x: 'train' not in x, self.video_list))
+
         if label is not None and label != 'all':
             self.video_list = list(filter(lambda x: label in x, self.video_list))
+
         print(
-            f"({root_dir.split('/')[-1]}) Total video: {len(self.video_list)}: {len([u for u in self.video_list  if 'live' in u])} vs. {len([u for u in self.video_list  if 'live' not in u])}"
+            "({dataset}) Total video: {total} | Live: {live} | Spoof: {spoof}".format(
+                dataset=self.dataset_name,
+                total=len(self.video_list),
+                live=len([u for u in self.video_list if 'live' in u]),
+                spoof=len([u for u in self.video_list if 'live' not in u]),
+            )
         )
 
-        self.dataset_name = dataset_name
-        self.root_dir = root_dir
         self.transform = transform
         self.map_size = map_size
         self.UUID = UUID
         self.image_size = img_size
-
-        if not is_train:
-            self.frame_per_video = test_per_video
-            self.video_list = sum([self.video_list] * test_per_video, [])
-        else:
-            self.frame_per_video = 1
-
-        self.init_frame_list()
 
     def __len__(self):
         return len(self.video_list)
@@ -76,72 +58,29 @@ class FaceDataset(Dataset):
         if self.is_train:
             random.shuffle(self.video_list)
 
-    def init_frame_list(self):
-        """
-        Create dictionary of
-        """
-        self.video_frame_list = dict(
-            zip(
-                [
-                    os.path.join(self.root_dir, video_name)
-                    for video_name in self.video_list
-                ],
-                [[] for _ in self.video_list],
-            )
-        )
-        for video_path in self.video_frame_list:
-
-            if not self.is_train:
-                """
-                In the mode test, we only need on face per video
-                """
-                all_crop_faces = glob(os.path.join(video_path, "crop_*.jpg"))
-                assert (
-                    len(all_crop_faces) > 2
-                ), f"Cannot find the image in folder {video_path}"
-                # all_crop_faces.sort()
-                self.video_frame_list[video_path] = (
-                    all_crop_faces  # [len(all_crop_faces)//2:len(all_crop_faces)//2+1] # Select only one middle frame for reproducible
-                )
-            else:
-                all_crop_faces = glob(os.path.join(video_path, "crop_*.jpg"))
-                assert (
-                    len(all_crop_faces) > 2
-                ), f"Cannot find the image in folder {video_path}"
-                self.video_frame_list[video_path] = all_crop_faces
-
-        return True
-
-    def get_client_from_video_name(self, video_name):
+    def get_client_from_video_name(self, video_name: str):
         video_name = video_name.split('/')[-1]
-        if 'msu' in self.dataset_name.lower() or 'replay' in self.dataset_name.lower():
-            match = re.findall('client(\d\d\d)', video_name)
-            if len(match) > 0:
-                client_id = match[0]
-            else:
-                raise RuntimeError('no client')
-        elif 'oulu' in self.dataset_name.lower():
-            match = re.findall('(\d+)_\d$', video_name)
-            if len(match) > 0:
-                client_id = match[0]
-            else:
-                raise RuntimeError('no client')
-        elif 'casia' in self.dataset_name.lower():
 
-            match = re.findall('(\d+)_[H|N][R|M]_\d$', video_name)
-            if len(match) > 0:
-                client_id = match[0]
-            else:
-                print(f"Cannot find client from : {video_name}")
-                raise RuntimeError('no client')
+        if 'msu' in self.dataset_name.lower() or 'replay' in self.dataset_name.lower():
+            match = re.findall(r'client(\d\d\d)', video_name)
+        elif 'oulu' in self.dataset_name.lower():
+            match = re.findall(r'(\d+)_\d$', video_name)
+        elif 'casia' in self.dataset_name.lower():
+            match = re.findall(r'(\d+)_[H|N][R|M]_\d$', video_name)
         else:
             raise RuntimeError("no dataset found")
+
+        if len(match) == 0:
+            raise RuntimeError('no client')
+        client_id = match[0]
+
         return client_id
 
     def __getitem__(self, idx):
-        idx = idx % len(self.video_list)  # Incase testing with many frame per video
         video_name = self.video_list[idx]
         spoofing_label = int('live' in video_name)
+        device_tag = 'live' if spoofing_label else 'spoof'
+
         if self.dataset_name in DEVICE_INFOS:
             if 'live' in video_name:
                 patterns = DEVICE_INFOS[self.dataset_name]['live']
@@ -149,37 +88,28 @@ class FaceDataset(Dataset):
                 patterns = DEVICE_INFOS[self.dataset_name]['spoof']
             else:
                 raise RuntimeError(
-                    f"Cannot find the label infor from the video: {video_name}"
+                    f"Cannot find the label info from the video: {video_name}"
                 )
+
             device_tag = None
             for pattern in patterns:
                 if len(re.findall(pattern, video_name)) > 0:
                     if device_tag is not None:
                         raise RuntimeError("Multiple Match")
                     device_tag = pattern
+
             if device_tag is None:
                 raise RuntimeError("No Match")
-        else:
-            device_tag = 'live' if spoofing_label else 'spoof'
 
         client_id = self.get_client_from_video_name(video_name)
-
         image_dir = os.path.join(self.root_dir, video_name)
+        image_x = self.sample_image(image_dir)
 
+        transformed_image1 = self.transform(image_x)
         if self.is_train:
-            (
-                image_x,
-                _,
-                _,
-            ) = self.sample_image(image_dir, is_train=True)
-            transformed_image1 = self.transform(image_x)
-            transformed_image2 = self.transform(
-                image_x,
-            )
-
+            transformed_image2 = self.transform(image_x)
         else:
-            image_x, _, _ = self.sample_image(image_dir, is_train=False, rep=None)
-            transformed_image1 = transformed_image2 = self.transform(image_x)
+            transformed_image2 = transformed_image1
 
         sample = {
             "image_x_v1": transformed_image1,
@@ -190,28 +120,15 @@ class FaceDataset(Dataset):
             'video': video_name,
             'client_id': client_id,
         }
+
         return sample
 
-    def sample_image(self, image_dir, is_train=False, rep=None):
-        """
-        rep is the parameter from the __getitem__ function to reduce randomness of test phase
+    def sample_image(self, image_dir: str):
+        frames = glob(os.path.join(image_dir, 'crop_*.jpg'))
+        image_path = np.random.choice(frames)
+        image = Image.open(image_path)
 
-        """
-        image_path = np.random.choice(self.video_frame_list[image_dir])
-        image_id = int(image_path.split('/')[-1].split('_')[-1].split('.')[0])
-
-        info_name = f"infov1_{image_id:04d}.npy"
-        info_path = os.path.join(image_dir, info_name)
-
-        try:
-            info = None
-            image = Image.open(image_path)
-        except Exception:
-            if is_train:
-                return self.sample_image(image_dir, is_train)
-            else:
-                raise ValueError(f"Error in the file {info_path}")
-        return image, info, image_id * 5
+        return image
 
 
 class Identity:  # used for skipping transforms
@@ -234,8 +151,8 @@ class RandomCutout(object):
         Return a random box
         """
         cut_rat = np.sqrt(1.0 - lam)
-        cut_w = np.int(W * cut_rat)
-        cut_h = np.int(H * cut_rat)
+        cut_w = int(W * cut_rat)
+        cut_h = int(H * cut_rat)
 
         # uniform
         cx = np.random.randint(W)
@@ -292,7 +209,7 @@ class RandomJPEGCompression(object):
 
 
 class RoundRobinDataset(Dataset):
-    def __init__(self, datasets):
+    def __init__(self, datasets: Sequence[FaceDataset]):
         self.datasets = datasets
         self.lengths = [len(dataset) for dataset in datasets]
         self.total_len = sum(self.lengths)

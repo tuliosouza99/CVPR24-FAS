@@ -1,4 +1,3 @@
-import os
 import random
 
 import numpy as np
@@ -9,193 +8,42 @@ from torch.utils.data import DataLoader
 from .dataset import FaceDataset, Identity, RandomCutout, RoundRobinDataset
 
 
-def get_single_dataset(
-    data_dir,
-    FaceDataset,
-    data_name,
-    train=True,
-    label=None,
-    img_size=256,
-    map_size=32,
-    transform=None,
-    UUID=-1,
-    test_per_video=1,
-):
-    if train:
-        if data_name in ["OULU"]:
-            data_set = FaceDataset(
-                data_name,
-                os.path.join(data_dir, 'oulu'),
-                is_train=True,
-                label=label,
-                transform=transform,
-                UUID=UUID,
-                img_size=img_size,
-            )
-        elif data_name in ["CASIA_MFSD"]:
-            data_set = FaceDataset(
-                data_name,
-                os.path.join(data_dir, 'casia'),
-                is_train=True,
-                label=label,
-                transform=transform,
-                UUID=UUID,
-                img_size=img_size,
-            )
-        elif data_name in ["Replay_attack"]:
-            data_set = FaceDataset(
-                data_name,
-                os.path.join(data_dir, 'replay'),
-                is_train=True,
-                label=label,
-                transform=transform,
-                UUID=UUID,
-                img_size=img_size,
-            )
-        elif data_name in ["MSU_MFSD"]:
-            data_set = FaceDataset(
-                data_name,
-                os.path.join(data_dir, 'msu'),
-                is_train=True,
-                label=label,
-                transform=transform,
-                UUID=UUID,
-                img_size=img_size,
-            )
-
-    else:
-        if data_name in ["OULU"]:
-            data_set = FaceDataset(
-                data_name,
-                os.path.join(data_dir, 'oulu'),
-                is_train=False,
-                label=label,
-                transform=transform,
-                map_size=map_size,
-                UUID=UUID,
-                img_size=img_size,
-                test_per_video=test_per_video,
-            )
-        elif data_name in ["CASIA_MFSD"]:
-            data_set = FaceDataset(
-                data_name,
-                os.path.join(data_dir, 'casia'),
-                is_train=False,
-                label=label,
-                transform=transform,
-                map_size=map_size,
-                UUID=UUID,
-                img_size=img_size,
-                test_per_video=test_per_video,
-            )
-        elif data_name in ["Replay_attack"]:
-            data_set = FaceDataset(
-                data_name,
-                os.path.join(data_dir, 'replay'),
-                is_train=False,
-                label=label,
-                transform=transform,
-                map_size=map_size,
-                UUID=UUID,
-                img_size=img_size,
-                test_per_video=test_per_video,
-            )
-        elif data_name in ["MSU_MFSD"]:
-
-            data_set = FaceDataset(
-                data_name,
-                os.path.join(data_dir, 'msu'),
-                is_train=False,
-                label=label,
-                transform=transform,
-                map_size=map_size,
-                UUID=UUID,
-                img_size=img_size,
-                test_per_video=test_per_video,
-            )
-
-    return data_set
-
-
 def get_datasets(
     data_dir,
-    FaceDataset,
     data_list,
     train=True,
     img_size=256,
     map_size=32,
     transform=None,
-    test_per_video=1,
     balance=False,
 ):
-
+    datasets = []
     sum_n = 0
-    if train:
-        if not balance:
-            data_name_list_train = data_list
-            data_set_sum = get_single_dataset(
-                data_dir,
-                FaceDataset,
-                data_name=data_name_list_train[0],
-                train=True,
-                img_size=img_size,
-                map_size=map_size,
-                transform=transform,
-                UUID=0,
-            )
-            sum_n = len(data_set_sum)
-            for i in range(1, len(data_name_list_train)):
-                data_tmp = get_single_dataset(
-                    data_dir,
-                    FaceDataset,
-                    data_name=data_name_list_train[i],
-                    train=True,
-                    img_size=img_size,
-                    map_size=map_size,
-                    transform=transform,
-                    UUID=i,
-                )
-                data_set_sum += data_tmp
-                sum_n += len(data_tmp)
-        else:
-            print("Balanced loader for each class and domain")
-            data_name_list_train = data_list
-            data_set_list = []
-            sum_n = 0
-            for i in range(len(data_name_list_train)):
-                for label in ['live', 'spoof']:
-                    data_tmp = get_single_dataset(
-                        data_dir,
-                        FaceDataset,
-                        data_name=data_name_list_train[i],
-                        train=True,
-                        img_size=img_size,
-                        map_size=map_size,
-                        transform=transform,
-                        UUID=i,
-                        label=label,
-                    )
-                    data_set_list.append(data_tmp)
-                    sum_n += len(data_tmp)
-            data_set_sum = RoundRobinDataset(data_set_list)
-    else:
-        data_name_list_test = data_list
-        data_set_sum = {}
-        for i in range(len(data_name_list_test)):
-            data_tmp = get_single_dataset(
-                data_dir,
-                FaceDataset,
-                data_name=data_name_list_test[i],
-                train=False,
+    labels = ['live', 'spoof'] if balance else [None]
+
+    for i in range(len(data_list)):
+        for label in labels:
+            data_tmp = FaceDataset(
+                dataset_name=data_list[i],
+                root_dir=data_dir,
+                is_train=train,
                 img_size=img_size,
                 map_size=map_size,
                 transform=transform,
                 UUID=i,
-                test_per_video=test_per_video,
+                label=label,
             )
-            data_set_sum[data_name_list_test[i]] = data_tmp
+            datasets.append(data_tmp)
             sum_n += len(data_tmp)
+
+    if balance:
+        print("Balanced loader for each class and domain")
+        data_set_sum = RoundRobinDataset(datasets)
+    else:
+        data_set_sum = sum(datasets) if len(datasets) > 1 else datasets[0]
+
     print("{} videos: {}".format('Train' if train else 'Test', sum_n))
+
     return data_set_sum
 
 
@@ -235,7 +83,6 @@ def get_train_test_loader(config):
     )
     train_set = get_datasets(
         config.PATH.data_folder,
-        FaceDataset,
         train=True,
         data_list=config.train_set,
         img_size=config.MODEL.image_size,
@@ -246,15 +93,11 @@ def get_train_test_loader(config):
 
     test_set = get_datasets(
         config.PATH.data_folder,
-        FaceDataset,
         train=False,
         data_list=config.test_set,
         img_size=config.MODEL.image_size,
         map_size=32,
         transform=test_transform,
-        test_per_video=(
-            config.TEST.get('n_frames') if config.TEST.get('n_frames') else 1
-        ),
     )
 
     def seed_worker(worker_id):
@@ -275,7 +118,7 @@ def get_train_test_loader(config):
     )
 
     test_loader = DataLoader(
-        test_set[config.test_set[0]],
+        test_set,
         batch_size=config.TRAIN.batch_size,
         shuffle=False,
         num_workers=config.SYS.num_workers,

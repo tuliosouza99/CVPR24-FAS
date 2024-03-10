@@ -1,12 +1,12 @@
 protocol: "OCI2M"
-train_set: ["OULU", "CASIA_MFSD", "Replay_attack"]
-test_set: ["MSU_MFSD"]
+train_set: ["OULU-NPU", "CASIA_faceAntisp", "Replay"]
+test_set: ["MSU-MFSD"]
 
 running_name: ""
 
 PATH:
-    data_folder: "./datasets/"
-    output_folder: "./logs/"
+    data_folder: "/mnt/e/fas/datasets/"
+    output_folder: "/mnt/e/fas/GAC-FAS/"
 
 SYS:
     num_gpus: 1
@@ -31,7 +31,7 @@ TRAIN:
     optimizer: "SGD"
     scheduler: "step"
     warming_epochs: 1
-    epochs: 20
+    epochs: 120
 
     balance_loader: True
     iter_per_epoch: 10
@@ -46,8 +46,9 @@ TRAIN:
     minimizer: "gac-fas"
     minimizer_warming: 2
 
-    GAC:
+    GAC-FAS:
         rho: 0.1
+        eta: 0.0
         alpha: 0.0002
 TEST:
     eval_preq: 5

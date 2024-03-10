@@ -80,7 +80,7 @@ class GACFAS:
 
     def proxy_gradients(self, index, input, labels, loss_func, **kwargs):
         self.proxy[index].train()
-        logits = self.proxy[index](input, False, True, labels)
+        logits = self.proxy[index](input, False)
         loss = loss_func(logits, labels, **kwargs)
         self.proxy[index].zero_grad()
         if isinstance(loss, list):

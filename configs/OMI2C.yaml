@@ -1,12 +1,12 @@
 protocol: "OMI2C"
-train_set: ["OULU", "MSU_MFSD", "Replay_attack"]
-test_set: ["CASIA_MFSD"]
+train_set: ["OULU-NPU", "MSU-MFSD", "Replay"]
+test_set: ["CASIA_faceAntisp"]
 
 running_name: ""
 
 PATH:
-    data_folder: "./datasets/"
-    output_folder: "./logs/"
+    data_folder: "/mnt/e/fas/datasets/"
+    output_folder: "/mnt/e/fas/GAC-FAS/"
 
 SYS:
     num_gpus: 1
@@ -46,8 +46,9 @@ TRAIN:
     minimizer: "gac-fas"
     minimizer_warming: 2
 
-    GAC:
+    GAC-FAS:
         rho: 0.1
+        eta: 0.0
         alpha: 0.0002
 TEST:
     eval_preq: 1

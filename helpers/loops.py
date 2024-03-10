@@ -171,7 +171,7 @@ def train(model, epoch, train_loader, optimizer, config, minimizer, **kwargs):
             * config.TRAIN.lambda_constrast
         )
 
-        if (config.TRAIN.minimizer == 'gacfas') and (
+        if (config.TRAIN.minimizer == 'gac-fas') and (
             epoch >= config.TRAIN.minimizer_warming
         ):
 
@@ -328,12 +328,12 @@ def eval_last(eval_best, config, **kwargs):
     file = open(os.path.join(config.PATH.result_name, "summary.txt"), "a")
     L = [
         f"Best epoch: \t{eval_best['best_epoch']}\n",
-        f"Best HTER: \t{eval_best['best_HTER']*100:.2f}\n",
-        f"Best AUC: \t{eval_best['best_auc']*100:.2f}\n",
+        f"Best HTER: \t{eval_best['best_HTER'] * 100:.2f}\n",
+        f"Best AUC: \t{eval_best['best_auc'] * 100:.2f}\n",
         "Average 10 last epoch:\n",
-        f"HTER: \t{np.array(HTERs).mean()*100:.2f} +- {np.array(HTERs).std()*100:.2f}\n",
-        f"AUC: \t{np.array(AUROCs).mean()*100:.2f} +- {np.array(AUROCs).std()*100:.2f}\n",
-        f"TPR: \t{np.array(TPRs).mean()*100:.2f} +- {np.array(TPRs).std()*100:.2f}\n",
+        f"HTER: \t{np.array(HTERs).mean() * 100:.2f} +- {np.array(HTERs).std() * 100:.2f}\n",
+        f"AUC: \t{np.array(AUROCs).mean() * 100:.2f} +- {np.array(AUROCs).std() * 100:.2f}\n",
+        f"TPR: \t{np.array(TPRs).mean() * 100:.2f} +- {np.array(TPRs).std() * 100:.2f}\n",
     ]
     file.writelines(L)
     file.close()
