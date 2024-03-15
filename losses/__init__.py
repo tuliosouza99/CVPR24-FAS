@@ -1,7 +1,15 @@
+from typing import Optional
+
 import torch
 
 
-def supcon_loss(features, labels=None, mask=None, temperature=0.1):
+def supcon_loss(
+    device: torch.device,
+    features: torch.Tensor,
+    labels: Optional[torch.Tensor] = None,
+    mask: Optional[torch.Tensor] = None,
+    temperature: float = 0.1,
+):
     base_temperature = 0.07
     """Compute loss for model. If both `labels` and `mask` are None,
     it degenerates to SimCLR unsupervised loss:
@@ -14,8 +22,6 @@ def supcon_loss(features, labels=None, mask=None, temperature=0.1):
     Returns:
         A loss scalar.
     """
-    device = torch.device('cuda') if features.is_cuda else torch.device('cpu')
-
     if len(features.shape) < 3:
         raise ValueError(
             '`features` needs to be [bsz, n_views, ...],'

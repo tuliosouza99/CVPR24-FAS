@@ -21,7 +21,7 @@ class FaceDataset(Dataset):
         label: Optional[str] = None,
         transform=None,
         map_size: int = 32,
-        UUID: int = -1,
+        uuid: int = -1,
         img_size: int = 256,
     ):
         self.is_train = is_train
@@ -48,7 +48,7 @@ class FaceDataset(Dataset):
 
         self.transform = transform
         self.map_size = map_size
-        self.UUID = UUID
+        self.uuid = uuid
         self.image_size = img_size
 
     def __len__(self):
@@ -115,7 +115,7 @@ class FaceDataset(Dataset):
             "image_x_v1": transformed_image1,
             "image_x_v2": transformed_image2,
             "label": spoofing_label,
-            "UUID": self.UUID,
+            "uuid": self.uuid,
             'device_tag': device_tag,
             'video': video_name,
             'client_id': client_id,

@@ -1,21 +1,22 @@
 import random
+from typing import Sequence
 
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 
 from .dataset import FaceDataset, Identity, RandomCutout, RoundRobinDataset
 
 
 def get_datasets(
-    data_dir,
-    data_list,
-    train=True,
-    img_size=256,
-    map_size=32,
+    data_dir: str,
+    data_list: Sequence[str],
+    train: bool = True,
+    img_size: int = 256,
+    map_size: int = 32,
     transform=None,
-    balance=False,
+    balance: bool = False,
 ):
     datasets = []
     sum_n = 0
@@ -30,7 +31,7 @@ def get_datasets(
                 img_size=img_size,
                 map_size=map_size,
                 transform=transform,
-                UUID=i,
+                uuid=i,
                 label=label,
             )
             datasets.append(data_tmp)
@@ -40,14 +41,14 @@ def get_datasets(
         print("Balanced loader for each class and domain")
         data_set_sum = RoundRobinDataset(datasets)
     else:
-        data_set_sum = sum(datasets) if len(datasets) > 1 else datasets[0]
+        data_set_sum = ConcatDataset(datasets)
 
     print("{} videos: {}".format('Train' if train else 'Test', sum_n))
 
     return data_set_sum
 
 
-def get_train_test_loader(config):
+def get_train_test_loader(config: dict):
     """
     Return the train and test data loader
 

@@ -12,6 +12,8 @@ SYS:
     num_gpus: 1
     GPUs: "0"
     num_workers: 4
+    precision: "32"
+    matmul_precision: "high"
 MODEL:
     model_name: "resnet18"
     norm: True

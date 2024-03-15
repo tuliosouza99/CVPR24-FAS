@@ -12,6 +12,8 @@ SYS:
     num_gpus: 1
     GPUs: "0"
     num_workers: 4
+    precision: "32"
+    matmul_precision: "high"
 MODEL:
     model_name: "resnet18"
     norm: True
@@ -31,7 +33,7 @@ TRAIN:
     optimizer: "SGD"
     scheduler: "step"
     warming_epochs: 1
-    epochs: 120
+    epochs: 20
 
     balance_loader: True
     iter_per_epoch: 10

@@ -5,6 +5,7 @@ from datetime import datetime
 import easydict
 import torch
 import yaml
+from lightning.fabric import Fabric
 
 from dataloaders.utils import get_train_test_loader
 from helpers.loops import eval_last, train, validate
@@ -14,15 +15,13 @@ from helpers.utils import (FixedLengthQueue, Logger, _seed_everything,
 from models import get_model
 from optimizers.gacfas import GACFAS
 
-# args for config file
-parser = argparse.ArgumentParser(description='Training Face Anti-Spoofing')
-parser.add_argument('--config', type=str, help='configuration file')
-
 
 def main(config):
-
+    torch.set_float32_matmul_precision(config.SYS.matmul_precision)
     os.environ["CUDA_VISIBLE_DEVICES"] = config.SYS.GPUs
-    device, device_ids = setup_device(config.SYS.num_gpus)
+    accelerator, n_devices, precision = setup_device(config.SYS.num_gpus, config.SYS.precision)
+    fabric = Fabric(accelerator=accelerator, devices=n_devices, precision=precision)
+    fabric.launch()
 
     now = datetime.now()
     key_names = [
@@ -67,9 +66,10 @@ def main(config):
         yaml.dump(config, file)
 
     train_loader, test_loader = get_train_test_loader(config)
+    train_loader, test_loader = fabric.setup_dataloaders(train_loader, test_loader)
+
     model = get_model(config)
-    model = model.cuda()
-    set_trainable(model, False, ['fc'], [0])  # If warming up
+    set_trainable(model, False, ['fc'])  # If warming up
     optimizer = torch.optim.SGD(
         [
             {
@@ -87,23 +87,25 @@ def main(config):
         momentum=config.TRAIN.momentum,
         weight_decay=config.TRAIN.weight_decay,
     )
+    model, optimizer = fabric.setup(model, optimizer)
+
     scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer, step_size=config.TRAIN.lr_step_size, gamma=config.TRAIN.lr_gamma
     )
 
+    minimizer = None
     if config.TRAIN.get('minimizer') == 'gac-fas':
         print(
             "Flatter: Multi-domain gradient aligment for cross domain face anti-spoofing"
         )
         minimizer = GACFAS(
+            fabric=fabric,
             model=model,
             rho=config.TRAIN.get(config.TRAIN.minimizer.upper()).rho,
             eta=config.TRAIN.get(config.TRAIN.minimizer.upper()).eta,
             alpha=config.TRAIN.get(config.TRAIN.minimizer.upper()).alpha,
             n_domains=len(config.train_set),
         )
-    else:
-        minimizer = None
 
     best_eval = easydict.EasyDict(
         {"best_epoch": -1, "best_HTER": 100, "best_auc": -100}
@@ -117,8 +119,10 @@ def main(config):
     )
     for epoch in range(config.TRAIN.epochs):
         if epoch == config.TRAIN.warming_epochs:  # Finish warming up
-            set_trainable(model, True, [], [0])
+            set_trainable(model, True)
+
         train(
+            fabric,
             model,
             epoch,
             train_loader,
@@ -133,6 +137,7 @@ def main(config):
             accum_eval=accum_eval,
         )
         scheduler.step()
+
         if (epoch > 0) and (
             (epoch % config.TEST.eval_preq == 0) or (epoch >= config.TRAIN.epochs - 10)
         ):
@@ -151,6 +156,7 @@ def main(config):
                 )
             )
             save_model(
+                fabric,
                 best_eval,
                 cur_eval,
                 model,
@@ -160,13 +166,19 @@ def main(config):
                 config,
                 logger=logger,
             )
+
     eval_last(best_eval, config, logger=logger)  # eval last 10 epochs
     logger.close()
-    return True
+
+    return None
 
 
 if __name__ == '__main__':
+    # args for config file
+    parser = argparse.ArgumentParser(description='Training Face Anti-Spoofing')
+    parser.add_argument('--config', type=str, help='configuration file')
     args = parser.parse_args()
+
     with open(args.config, 'r') as cf:
         config = yaml.safe_load(cf)
     config = easydict.EasyDict(config)

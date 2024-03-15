@@ -1,8 +1,13 @@
 import os
 import random
+from typing import Iterable, Optional
 
 import numpy as np
 import torch
+import torch.nn as nn
+from lightning.fabric import Fabric
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 
 def _seed_everything(random_seed=1223):
@@ -21,34 +26,21 @@ def count_parameters(model):
 
 
 def set_trainable(
-    model, boolean: bool = True, except_layers: list = [], device_ids: list = []
+    model: nn.Module,
+    boolean: bool = True,
+    except_layers: Optional[Iterable[str]] = None,
 ):
-    if boolean:
-        for i, param in model.named_parameters():
-            param.requires_grad = True
-        if len(except_layers) > 0:  # Except some layers
-            for layer in except_layers:
-                assert layer is not None
-                if len(device_ids) <= 1:
-                    for param in getattr(model, layer).parameters():
-                        param.requires_grad = False
-                else:
-                    for param in getattr(model.module, layer).parameters():
-                        param.requires_grad = False
-    else:
-        #         assert len(except_layers) > 0, "Require free layer"
-        for i, param in model.named_parameters():
-            param.requires_grad = False
-        for layer in except_layers:  # Except some layers
+    for i, param in model.named_parameters():
+        param.requires_grad = boolean
+
+    if except_layers is not None:  # Except some layers
+        for layer in except_layers:
             assert layer is not None
-            if len(device_ids) <= 1:
-                for param in getattr(model, layer).parameters():
-                    param.requires_grad = True
-            else:
-                for param in getattr(model.module, layer).parameters():
-                    param.requires_grad = True
+            for param in getattr(model, layer).parameters():
+                param.requires_grad = not boolean
 
     print("Training params: ", count_parameters(model))
+
     return model
 
 
@@ -81,13 +73,14 @@ class AvgrageMeter(object):
             self.avg = self.sum / self.cnt
 
 
-def setup_device(n_gpu_use):
+def setup_device(n_gpu_use: int, precision: str):
     n_gpu = torch.cuda.device_count()
     if n_gpu_use > 0 and n_gpu == 0:
         print(
             "Warning: There\'s no GPU available on this machine, training will be performed on CPU."
         )
         n_gpu_use = 0
+
     if n_gpu_use > n_gpu:
         print(
             "Warning: The number of GPU\'s configured to use is {}, but only {} are available on this machine.".format(
@@ -95,9 +88,24 @@ def setup_device(n_gpu_use):
             )
         )
         n_gpu_use = n_gpu
-    device = torch.device('cuda:0' if n_gpu_use > 0 else 'cpu')
-    list_ids = list(range(n_gpu_use))
-    return device, list_ids
+
+    if precision == '16-mixed':
+        if n_gpu_use == 0:
+            print(
+                "Warning: Mixed precision is not supported by this machine. Using fp32."
+            )
+            precision = '32'
+
+    if precision == 'bf16-mixed':
+        if not torch.cuda.is_bf16_supported():
+            print(
+                "Warning: Mixed bf16 precision is not supported by this machine. Using fp32."
+            )
+            precision = '32'
+
+    accelerator = 'cuda' if n_gpu_use > 0 else 'cpu'
+
+    return accelerator, n_gpu_use, precision
 
 
 def check_folder(log_dir):
@@ -194,10 +202,23 @@ def is_prime(num):
 
 
 def save_model(
-    best_eval, cur_eval, model, epoch, optimizer, scheduler, config, **kwargs
+    fabric: Fabric,
+    best_eval: dict,
+    cur_eval: dict,
+    model: nn.Module,
+    epoch: int,
+    optimizer: Optimizer,
+    scheduler: LRScheduler,
+    config: dict,
+    **kwargs
 ):
 
     logger = kwargs.get('logger')
+    model_path = os.path.join(
+        config.PATH.model_path,
+        "{}_p{}_recent.pth".format(config.MODEL.model_name, config.protocol),
+    )
+
     if (cur_eval["auc"] - cur_eval["HTER"]) >= (
         best_eval["best_auc"] - best_eval["best_HTER"]
     ):
@@ -206,41 +227,28 @@ def save_model(
         best_eval["best_HTER"] = cur_eval["HTER"]
         best_eval["tpr95"] = cur_eval["tpr"]
         best_eval["best_epoch"] = epoch
+
         model_path = os.path.join(
             config.PATH.model_path,
             "{}_p{}_best.pth".format(config.MODEL.model_name, config.protocol),
         )
-        torch.save(
-            {
-                'epoch': epoch,
-                'state_dict': model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'scheduler': scheduler,
-                'args': config,
-                'eva': (cur_eval["HTER"], cur_eval["auc"]),
-            },
-            model_path,
-        )
+
     logger.log(
         "[Best result]\t: epoch={}, HTER={:.4f}, AUC={:.4f}".format(
             best_eval["best_epoch"], best_eval["best_HTER"], best_eval["best_auc"]
         )
     )
 
-    model_path = os.path.join(
-        config.PATH.model_path,
-        "{}_p{}_recent.pth".format(config.MODEL.model_name, config.protocol),
-    )
-    torch.save(
+    fabric.save(
+        model_path,
         {
             'epoch': epoch,
-            'state_dict': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
+            'state_dict': model,
+            'optimizer': optimizer,
             'scheduler': scheduler,
             'args': config,
             'eva': (cur_eval["HTER"], cur_eval["auc"]),
         },
-        model_path,
     )
 
-    return True
+    return None
